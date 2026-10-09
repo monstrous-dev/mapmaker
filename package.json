@@ -1,0 +1,30 @@
+{
+	"name": "mapmaker",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Draw an area on a 2D world map → extract every OSM element via client-side Overpass → render a pure Three.js 3D scene (extruded buildings, flat roads/water/green) with clickable objects, info drawer, camera presets, and per-map SQLite persistence. No MapLibre in the 3D view.",
+	"scripts": {
+		"dev": "vite dev --port 5231 --strictPort",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"verify": "node scripts/verify.mjs"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-node": "^5.2.0",
+		"@sveltejs/kit": "^2.70.2",
+		"@sveltejs/vite-plugin-svelte": "^7.3.0",
+		"@types/node": "^24.13.3",
+		"@types/three": "^0.185.0",
+		"svelte": "^5.0.0",
+		"svelte-check": "^4.0.0",
+		"typescript": "^5.9.3",
+		"vite": "^8.2.1"
+	},
+	"dependencies": {
+		"maplibre-gl": "^6.3.0",
+		"svelte-maplibre-gl": "^2.2.0",
+		"three": "^0.185.0"
+	}
+}

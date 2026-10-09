@@ -1,0 +1,10 @@
+node_modules
+.svelte-kit
+build
+dev.log
+.env
+# generated per-map SQLite databases
+data
+
+# pi agent session state
+.pi/

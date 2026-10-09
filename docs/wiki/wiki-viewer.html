@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mapmaker Wiki Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github.min.css" media="all" id="hljs-light" disabled />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css" media="all" id="hljs-dark" disabled />
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/highlight.min.js"></script>
+  <style>
+    :root {
+      --bg: #ffffff; --surface: #f6f8fa; --surface-hover: #eaeef2;
+      --border: #d0d7de; --text: #1f2328; --text-secondary: #656d76;
+      --accent: #0969da; --accent-hover: #0550ae; --code-bg: #f6f8fa;
+      --code-text: #1f2328; --pre-bg: #ffffff; --quote-border: #d0d7de;
+      --quote-bg: #f6f8fa; --table-stripe: #f6f8fa; --link: #0969da;
+      --hr: #d8dee4; --danger: #cf222e; --sidebar-bg: #f6f8fa;
+      --sidebar-border: #d0d7de; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --sidebar-width: 260px; --toolbar-height: 48px;
+    }
+    html[data-theme="dark"], html[data-theme="auto"].system-dark {
+      --bg: #0d1117; --surface: #161b22; --surface-hover: #1c2128;
+      --border: #30363d; --text: #e6edf3; --text-secondary: #8b949e;
+      --accent: #58a6ff; --accent-hover: #79c0ff; --code-bg: #161b22;
+      --code-text: #e6edf3; --pre-bg: #0d1117; --quote-border: #30363d;
+      --quote-bg: #161b22; --table-stripe: #161b22; --link: #58a6ff;
+      --hr: #21262d; --danger: #f85149; --sidebar-bg: #161b22;
+      --sidebar-border: #30363d; --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      font-size: 16px; line-height: 1.7; color: var(--text); background: var(--bg);
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    .app-layout { display: flex; flex: 1; min-height: 0; }
+    .sidebar {
+      width: var(--sidebar-width); flex-shrink: 0; background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border); display: flex; flex-direction: column;
+      overflow: hidden; height: calc(100vh - var(--toolbar-height));
+      position: sticky; top: var(--toolbar-height);
+    }
+    .sidebar-header {
+      padding: 12px 16px; font-size: 13px; font-weight: 600;
+      color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--sidebar-border); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-toggle-label { cursor: pointer; color: var(--accent); font-size: 11px; text-transform: none; letter-spacing: normal; font-weight: 500; }
+    .sidebar-toggle-label:hover { text-decoration: underline; }
+    .sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .sidebar-scroll::-webkit-scrollbar { width: 6px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .tree-group-label {
+      padding: 4px 16px 2px; font-size: 11px; font-weight: 600;
+      color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px;
+    }
+    .tree-item {
+      display: flex; align-items: center; gap: 6px; padding: 5px 16px 5px 24px;
+      font-size: 13px; color: var(--text); text-decoration: none; cursor: pointer;
+      transition: background 0.12s; border: none; background: none; width: 100%;
+      text-align: left; font-family: inherit; line-height: 1.4;
+    }
+    .tree-item:hover { background: var(--surface-hover); }
+    .tree-item.active { background: var(--accent); color: #fff; font-weight: 500; }
+    .tree-item .tree-icon { flex-shrink: 0; opacity: 0.6; }
+    .tree-item.active .tree-icon { opacity: 1; }
+    .tree-item .tree-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .breadcrumb {
+      padding: 8px 24px; font-size: 13px; color: var(--text-secondary);
+      border-bottom: 1px solid var(--border); background: var(--bg);
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .breadcrumb a { color: var(--link); text-decoration: none; cursor: pointer; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb .separator { color: var(--text-secondary); font-size: 12px; }
+    .breadcrumb .current { color: var(--text); font-weight: 500; }
+    .toolbar {
+      height: var(--toolbar-height); flex-shrink: 0; background: var(--surface);
+      border-bottom: 1px solid var(--border); padding: 0 16px;
+      display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
+      position: sticky; top: 0; z-index: 30;
+    }
+    .toolbar .file-name {
+      font-weight: 600; font-size: 13px; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+    }
+    .toolbar button {
+      background: var(--accent); color: #fff; border: none; border-radius: 6px;
+      padding: 5px 12px; font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .toolbar button:hover { background: var(--accent-hover); }
+    .toolbar .nav-btn {
+      background: none; color: var(--text); border: 1px solid var(--border);
+      padding: 4px 8px; display: flex; align-items: center; gap: 2px; font-size: 13px;
+    }
+    .toolbar .nav-btn:hover { background: var(--surface-hover); }
+    .toolbar .nav-btn:disabled { opacity: 0.35; cursor: default; background: none; }
+    .theme-toggle {
+      background: none !important; color: var(--text) !important;
+      border: 1px solid var(--border) !important; padding: 4px 7px !important;
+      display: flex; align-items: center; gap: 4px; font-size: 13px !important;
+      border-radius: 6px; cursor: pointer; flex-shrink: 0;
+    }
+    .theme-toggle:hover { background: var(--surface-hover) !important; }
+    .theme-toggle svg { width: 15px; height: 15px; }
+    .container {
+      flex: 1; overflow-y: auto; padding: 32px 40px 80px;
+      max-width: 960px; margin: 0 auto; width: 100%;
+    }
+    .container::-webkit-scrollbar { width: 8px; }
+    .container::-webkit-scrollbar-track { background: transparent; }
+    .container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .md-body h1,.md-body h2,.md-body h3,.md-body h4,.md-body h5,.md-body h6 { margin-top: 24px; margin-bottom: 16px; font-weight: 600; line-height: 1.25; }
+    .md-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--hr); }
+    .md-body h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--hr); }
+    .md-body h3 { font-size: 1.25em; }
+    .md-body h4 { font-size: 1em; }
+    .md-body h5 { font-size: 0.875em; }
+    .md-body h6 { font-size: 0.85em; color: var(--text-secondary); }
+    .md-body p { margin-bottom: 16px; }
+    .md-body a { color: var(--link); text-decoration: none; cursor: pointer; }
+    .md-body a:hover { text-decoration: underline; }
+    .md-body strong { font-weight: 600; }
+    .md-body del { text-decoration: line-through; color: var(--text-secondary); }
+    .md-body ul,.md-body ol { margin-bottom: 16px; padding-left: 2em; }
+    .md-body li { margin-bottom: 4px; }
+    .md-body li > p { margin-bottom: 8px; }
+    .md-body blockquote { margin: 0 0 16px; padding: 8px 16px; border-left: 4px solid var(--quote-border); background: var(--quote-bg); color: var(--text-secondary); }
+    .md-body code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 85%; background: var(--code-bg); padding: 0.2em 0.4em; border-radius: 6px; color: var(--code-text); }
+    .md-body pre { margin-bottom: 16px; padding: 16px; overflow: auto; border-radius: 8px; background: var(--pre-bg); line-height: 1.5; }
+    .md-body pre code { display: block; background: none; padding: 0; border-radius: 0; font-size: 13px; white-space: pre; word-wrap: normal; }
+    .md-body table { border-collapse: collapse; width: 100%; margin-bottom: 16px; overflow: auto; }
+    .md-body th,.md-body td { border: 1px solid var(--border); padding: 8px 13px; }
+    .md-body th { font-weight: 600; background: var(--surface); }
+    .md-body tr:nth-child(even) td { background: var(--table-stripe); }
+    .md-body hr { border: none; border-top: 2px solid var(--hr); margin: 24px 0; }
+    .md-body img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+    .md-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent); }
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; gap: 20px; }
+    .loading-state .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top: 3px solid var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-state p { color: var(--text-secondary); font-size: 15px; }
+    .error-banner { background: #ffebe9; border: 1px solid var(--danger); color: var(--danger); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+    html[data-theme="dark"] .error-banner, html[data-theme="auto"].system-dark .error-banner { background: #3d1214; }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .sidebar.show-mobile { display: flex; position: fixed; inset: 0; z-index: 50; width: 100%; height: 100%; top: var(--toolbar-height); }
+      .container { padding: 20px 16px 60px; }
+      .breadcrumb { padding: 6px 16px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar" id="toolbar">
+    <button class="nav-btn" id="backBtn" title="Back" disabled>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8L2 12L6 16"/><path d="M2 12H22"/></svg>
+    </button>
+    <button class="nav-btn" id="fwdBtn" title="Forward" disabled>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/></svg>
+    </button>
+    <span class="file-name" id="fileName">mapmaker Wiki</span>
+    <button id="sidebarToggle" title="Toggle sidebar">&#9776;</button>
+    <button id="homeBtn">Home</button>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x21="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="app-layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span>Wiki Pages</span>
+        <span class="sidebar-toggle-label" id="closeSidebarBtn">&#215; close</span>
+      </div>
+      <div class="sidebar-scroll" id="sidebarScroll"></div>
+    </nav>
+
+    <div class="main-area">
+      <div class="breadcrumb" id="breadcrumb">
+        <a id="breadcrumbHome">Wiki</a>
+        <span class="separator">/</span>
+        <span class="current" id="breadcrumbCurrent">loading...</span>
+      </div>
+      <div class="container" id="container">
+        <article class="md-body" id="output">
+          <div class="loading-state"><div class="spinner"></div><p>Loading wiki...</p></div>
+        </article>
+      </div>
+    </div>
+  </div>
+
+  <script>
+var WIKI_CONTENT = {
+  "architecture/file-tree.md": `---
+type: Artifact
+title: File tree
+description: Complete project file listing with per-file descriptions.
+timestamp: "2026-08-12T19:00:32.673Z"
+---
+
+# File tree — generated 2026-08-12T18:19:33.480Z
+# Respects .wiki_ignore exclusions.
+# [description] — shorthand summary of each file's function
+
+.
+├── .pi/ [pi agent local config and state]
+│   └── todos/ [file-backed todo store for the pi agent harness]
+├── .svelte-kit/ [SvelteKit-generated build artifacts, manifests, and type declarations]
+│   ├── adapter-node/ [output of @sveltejs/adapter-node — the SSR server bundle]
+│   │   └── entries/ [compiled server entry points and shared chunks]
+│   │       ├── chunks/ [shared vendored/internal chunks]
+│   │       │   └── vendor.js [bundled third-party dependencies for the node server]
+│   │       ├── env.js [runtime environment-variable access shim]
+│   │       ├── handler.js [HTTP request handler invoked by the node server]
+│   │       ├── index.js [node server entrypoint — starts listening for requests]
+│   │       ├── shims.js [node-specific runtime shims injected by the adapter]
+│   │       └── utils.js [adapter internal helpers]
+│   ├── generated/ [SvelteKit-generated client/server/shared code and route types]
+│   │   ├── client/ [generated client-side manifests and route node loaders]
+│   │   │   ├── nodes/ [per-route client node bundles]
+│   │   │   │   ├── 0.js [client node 0 — root/layout]
+│   │   │   │   ├── 1.js [client node 1 — error page]
+│   │   │   │   └── 2.js [client node 2 — the main +page]
+│   │   │   ├── app.js [generated client app bootstrap]
+│   │   │   └── matchers.js [generated route param matchers (none defined here)]
+│   │   ├── client-optimized/ [pre-optimized client bundles for production]
+│   │   │   ├── nodes/ [per-route optimized client nodes]
+│   │   │   │   ├── 0.js [optimized client node 0 — root/layout]
+│   │   │   │   ├── 1.js [optimized client node 1 — error page]
+│   │   │   │   └── 2.js [optimized client node 2 — the main +page]
+│   │   │   ├── app.js [optimized client app bootstrap]
+│   │   │   └── matchers.js [optimized route param matchers]
+│   │   ├── server/ [generated server-side manifests]
+│   │   │   └── internal.js [generated server internal helpers]
+│   │   ├── shared/ [generated code shared between client and server]
+│   │   │   └── error-template.js [generated error-page template]
+│   │   ├── root.js [generated root component JS]
+│   │   └── root.svelte [generated root component source]
+│   ├── output/ [Vite build output for both client and server]
+│   │   ├── client/ [production client bundle]
+│   │   │   ├── _app/ [hashed app assets]
+│   │   │   │   ├── immutable/ [content-hashed, long-term-cached assets]
+│   │   │   │   │   ├── assets/ [extracted CSS and other asset files]
+│   │   │   │   │   │   ├── 0.DibhTzAi.css [hashed CSS chunk for node 0]
+│   │   │   │   │   │   └── 2.DE2JJ_co.css [hashed CSS chunk for node 2]
+│   │   │   │   │   ├── chunks/ [shared JS chunks split by the bundler]
+│   │   │   │   │   │   ├── 0eewtI81.js [hashed shared chunk]
+│   │   │   │   │   │   ├── Bjy-W4x2.js [hashed shared chunk]
+│   │   │   │   │   │   ├── Cn5idoc4.js [hashed shared chunk]
+│   │   │   │   │   │   └── xihTtKlq.js [hashed shared chunk]
+│   │   │   │   │   ├── entry/ [client entry bootstrap]
+│   │   │   │   │   │   ├── app.Ds3UoZQ0.js [client app entry]
+│   │   │   │   │   │   └── start.Dc6Z-o4J.js [client start-up bootstrap]
+│   │   │   │   │   ├── nodes/ [hashed per-route client nodes]
+│   │   │   │   │   │   ├── 0.pp1s_Fkj.js [hashed client node 0]
+│   │   │   │   │   │   ├── 1.B8BWo7gy.js [hashed client node 1]
+│   │   │   │   │   │   └── 2.BJjWRt9Q.js [hashed client node 2]
+│   │   │   │   │   └── workers/ [web worker bundles]
+│   │   │   │   │       └── maplibre-gl-worker-DZ7nj4vd.js [MapLibre GL tile worker]
+│   │   │   │   └── version.json [build version stamp for cache invalidation]
+│   │   │   └── .vite/ [Vite internal metadata]
+│   │   │       └── manifest.json [Vite client manifest]
+│   │   └── server/ [production SSR server bundle]
+│   │       ├── _app/ [server-side app assets]
+│   │       │   └── immutable/ [content-hashed server assets]
+│   │       │       ├── assets/ [server-side CSS chunks]
+│   │       │       │   ├── _layout.DibhTzAi.css [hashed layout CSS]
+│   │       │       │   └── _page.DE2JJ_co.css [hashed page CSS]
+│   │       │       └── workers/ [server-side worker bundles]
+│   │       │           └── maplibre-gl-worker-DZ7nj4vd.js [MapLibre GL tile worker]
+│   │       ├── .vite/ [Vite internal metadata]
+│   │       │   └── manifest.json [Vite server manifest]
+│   │       ├── chunks/ [server-side shared chunks]
+│   │       │   ├── env.js [server environment-variable access]
+│   │       │   ├── exports.js [re-exported server modules]
+│   │       │   ├── index-server.js [server barrel/index]
+│   │       │   ├── internal.js [server internal helpers]
+│   │       │   ├── internal2.js [additional server internal helpers]
+│   │       │   ├── server.js [server runtime]
+│   │       │   ├── shared.js [code shared across server nodes]
+│   │       │   └── utils.js [server utilities]
+│   │       ├── entries/ [compiled server route entries and fallbacks]
+│   │       │   ├── fallbacks/ [compiled fallback pages]
+│   │       │   │   └── error.svelte.js [compiled error page]
+│   │       │   └── pages/ [compiled page entries]
+│   │       │       ├── _layout.svelte.js [compiled root layout]
+│   │       │       └── _page.svelte.js [compiled main page]
+│   │       ├── nodes/ [per-route server nodes]
+│   │       │   ├── 0.js [server node 0]
+│   │       │   ├── 1.js [server node 1]
+│   │       │   └── 2.js [server node 2]
+│   │       ├── stylesheets/ [extracted server stylesheets]
+│   │       ├── env.js [server environment access]
+│   │       ├── index.js [server bundle entrypoint]
+│   │       ├── internal.js [server internal module]
+│   │       ├── manifest-full.js [full route manifest (internal)]
+│   │       ├── manifest.js [public route manifest]
+│   │       └── remote-entry.js [remote-entry resolver for server]
+│   ├── types/ [SvelteKit-generated TypeScript declarations]
+│   │   ├── src/ [generated types mirroring src/]
+│   │   │   └── routes/ [generated per-route types]
+│   │   │       └── $types.d.ts [typed load/action params for the routes]
+│   │   └── route_meta_data.json [metadata for each route]
+│   ├── ambient.d.ts [ambient type declarations generated by SvelteKit]
+│   ├── env.d.ts [typed environment variable declarations]
+│   ├── non-ambient.d.ts [non-ambient type declarations]
+│   └── tsconfig.json [SvelteKit-generated base tsconfig (extended by ./tsconfig.json)]
+├── build/ [deployable adapter-node production build output (created by \`npm run build\`)]
+├── docs/ [project documentation]
+│   └── wiki/ [OKF knowledge wiki documenting this project]
+├── node_modules/ [installed npm dependencies]
+├── scripts/ [build/check helper scripts]
+│   └── verify.mjs [pure-Node projection/extrusion/height-ladder self-check, run via \`npm run verify\`]
+├── src/ [application source]
+│   ├── lib/ [shared library code — the project's domain core]
+│   │   ├── components/ [Svelte UI components]
+│   │   │   ├── InfoDrawer.svelte [slide-in inspect/download panel: clicked object's OSM identity + derived measures + tags, or map overview + SQLite download]
+│   │   │   ├── Map.svelte [2D MapLibre area-selection map (CARTO Positron + click-drag box draw) — the only MapLibre surface]
+│   │   │   └── ThreeMap.svelte [pure Three.js 3D viewport: extrudes buildings, ribbons roads, flats water/green, merges per category, per-vertex objId picking, 5 camera presets]
+│   │   ├── server/ [server-only modules — never imported from client code]
+│   │   │   └── db.ts [per-map SQLite persistence via stdlib node:sqlite: safeMapId, writeMap, readMapMeta, listMaps, dbPath]
+│   │   ├── extrude.ts [building prism extrusion: Shape → ExtrudeGeometry, winding normalization, ring cleaning (erasable-syntax-only)]
+│   │   ├── measure.ts [local-metre geometry measures + formatters for the info drawer: ringArea, polyArea, lineLength, ringPerimeter, fmtArea, fmtLen (erasable-syntax-only)]
+│   │   ├── osmToScene.ts [classifies raw OSM elements into a SceneData descriptor: buildings, roads, flats + height/width parsing]
+│   │   ├── overpass.ts [client-side tiled Overpass extraction: ~0.05° cells, heavy-cell subdivision, mirror failover, dedupe by id]
+│   │   ├── projection.ts [lon/lat → local-metre equirectangular ENU projection anchored at the bbox center (erasable-syntax-only)]
+│   │   ├── types.ts [shared types — BBox, ObjectKind, MapObjectBase (identity model shared by picking, drawer, and SQLite export)]
+│   │   └── view.ts [imperative camera ViewController API exposed by ThreeMap to its parent: setPreset, rotateBy, tiltBy, reset + PresetName]
+│   ├── routes/ [SvelteKit routes]
+│   │   ├── api/ [REST surface for persisted maps — see map-persistence-and-rest-api]
+│   │   │   └── maps/
+│   │   │       ├── +server.ts [POST /api/maps write/overwrite a map; GET /api/maps list all maps newest-first]
+│   │   │       └── [id]/
+│   │   │           ├── +server.ts [GET /api/maps/[id] metadata; 404 if unknown]
+│   │   │           └── download/+server.ts [GET /api/maps/[id]/download stream the .sqlite as application/vnd.sqlite3]
+│   │   ├── +layout.svelte [root layout — imports app.css and renders children]
+│   │   └── +page.svelte [main page: orchestrates select area → generate (Overpass) → render (Three.js) → persist (POST /api/maps) with asymptotic progress]
+│   ├── app.css [global design tokens (CSS variables) and base styles]
+│   ├── app.d.ts [SvelteKit App namespace type declarations]
+│   └── app.html [HTML app shell template]
+├── .gitignore [git ignore patterns]
+├── .wiki_ignore [wiki staleness-detection exclusions (node_modules, build, docs/wiki, …)]
+├── package-lock.json [npm dependency lockfile pinning exact installed versions]
+├── package.json [project manifest — scripts (dev/check/verify/build) and dependencies (three, maplibre-gl, svelte-maplibre-gl)]
+├── README.md [project readme — what it does, run instructions, knobs, design basis, attribution]
+├── svelte.config.js [SvelteKit config — vitePreprocess + adapter-node for SSR deployment]
+├── tsconfig.json [TypeScript config — extends .svelte-kit/tsconfig.json with strict mode]
+└── vite.config.ts [Vite config — SvelteKit plugin + excludes svelte-maplibre-gl/maplibre-gl from the optimizer for the v6 worker]
+`,
+  "decisions/freeform-area-selection-via-bbox-query-client-side-point-in-.md": `---
+type: Decision
+title: Freeform area selection via bbox query + client-side point-in-polygon filter
+description: Context
+tags: [area-selection, overpass, geometry, frontend]
+status: accepted
+timestamp: "2026-08-12T19:30:53.790Z"
+---
+
+# Freeform area selection via bbox query + client-side point-in-polygon filter
+
+## Context
+
+Users wanted to draw an arbitrary freehand polygon (an L-shape, a curved area)
+on the 2D selection map and generate the 3D scene from just that shape — not
+just the existing click-drag rectangle.
+
+The extraction layer (\`src/lib/overpass.ts\`) is hard-wired to **bounding boxes**:
+it tiles a bbox into ~0.05° cells, queries Overpass per cell, subdivides/retries
+heavy cells, dedupes by OSM id, and fails over across mirrors. Overpass does not
+have a cheap "elements inside this arbitrary polygon" query comparable to bbox
+tiling.
+
+## Choice
+
+Keep the Overpass query bbox-based. For a drawn polygon:
+
+1. Compute the polygon's axis-aligned bounding box (\`bboxOfRing\` in
+   \`src/lib/clip.ts\`).
+2. Run the **existing** extraction (all tiling/failover untouched) on that bbox.
+3. **Client-side filter** the returned elements, keeping any element that has at
+   least one node inside the polygon (even-odd ray-casting \`pointInRing\`, exposed
+   as \`elementInPolygon\`). The filter is inclusive: a building straddling the
+   edge or a road crossing the area is **kept whole**, never clipped.
+
+The selection map (\`Map.svelte\`) gains a ▢ Rectangle / ✎ Freeform mode toggle;
+both emit a single \`Area\` type (\`{ type: 'bbox'; bbox }\` or
+\`{ type: 'polygon'; ring }\`). The page resolves the area to a bbox for extraction
+and applies the polygon filter only for \`polygon\`.
+
+## Alternatives considered
+
+- **Rewrite the extraction layer to query an arbitrary polygon.** Overpass has no
+  bbox-equivalent for polygons; you'd approximate with many tiny bboxes or
+  \`around\` filters, breaking the tiling/subdivision/retry logic that makes
+  extraction robust. Rejected — far more risk for no better result.
+- **Clip building/road geometry to the polygon boundary.** Produces prettier
+  edges but adds real geometry work (polygon-polygon clipping per element) and
+  visually slices buildings in half. Rejected — keeping whole objects is simpler
+  and reads better at city-block scale.
+
+## Rationale
+
+The bbox pipeline is the fragile, hard-won part of the system. Reusing it means
+zero extraction risk. The client-side filter is a pure function over already-
+fetched data (~tens of thousands of elements), so cost is negligible relative to
+the network extraction. Whole-object retention avoids geometry clipping entirely.
+
+## Consequences
+
+- An element is included if **any** of its nodes is inside the polygon, so a road
+  that merely grazes the edge brings its whole length in. Acceptable for city-
+  block selection.
+- The 3D ground plane is still the polygon's bounding **rectangle**, not the
+  exact polygon shape — content is clipped correctly, but the base is framed by a
+  rectangle. Upgrade path (if wanted): build the ground from the polygon ring.
+- \`src/lib/clip.ts\` is erasable-syntax-only so \`scripts/verify.mjs\` could import
+  it directly, matching the convention of the other math modules.
+
+## Source
+
+- \`src/lib/clip.ts\` — \`bboxOfRing\`, \`pointInRing\`, \`elementInPolygon\`
+- \`src/lib/types.ts\` — \`Area\` union type
+- \`src/lib/components/Map.svelte\` — Rectangle/Freeform toggle + draw handlers
+- \`src/routes/+page.svelte\` — area → bbox + polygon filter wiring
+`,
+  "decisions/index.md": `# Decisions
+
+_Major decisions and direction shifts (ADRs) will be listed here._
+- [Pure Three.js for the 3D view — no MapLibre in render stage](./pure-three-js-for-the-3d-view-no-maplibre-in-render-stage.md) - Context
+- [Pure Three.js 3D view (no MapLibre)](./pure-three-js-3d-view-no-maplibre.md) - Context
+- [Use stdlib node:sqlite for map persistence (not better-sqlite3)](./node-sqlite-for-map-persistence.md) - Context
+- [Freeform area selection via bbox query + client-side point-in-polygon filter](./freeform-area-selection-via-bbox-query-client-side-point-in-.md) - Context
+`,
+  "decisions/node-sqlite-for-map-persistence.md": `---
+type: Decision
+title: "Use stdlib node:sqlite for map persistence (not better-sqlite3)"
+description: Context
+tags: [architecture, persistence, sqlite, dependencies]
+status: accepted
+timestamp: "2026-08-12T19:00:05.467Z"
+---
+
+# Use stdlib node:sqlite for map persistence (not better-sqlite3)
+
+## Context
+
+\`mapmaker\` builds a \`SceneData\` descriptor (buildings / roads / water / green with tags + geometry) entirely client-side from Overpass and renders it in Three.js. Until this turn nothing was persisted — regenerating meant re-querying Overpass. The new inspect-and-download feature needs to (a) store the full scene with server-computed area/length measures and (b) let the user download one self-contained file per map.
+
+## Choice
+
+Persist each generated map to its **own SQLite file** (\`data/maps/<mapId>.sqlite\`) using the standard-library **\`node:sqlite\`** (\`DatabaseSync\`), exposed through a small REST surface under \`/api/maps\`. One map = one file = one database; schema is two tables (\`map\` meta + \`element\` rows carrying tags/geometry JSON and server-computed \`area_m2\` / \`length_m\`). See [[map-persistence-and-rest-api]].
+
+## Alternatives considered
+
+- **\`better-sqlite3\`** — most popular, but a native addon: \`node-gyp\` build step, per-platform prebuilt binaries, larger supply-chain surface. Overkill for write-once-read-many per-map files.
+- **\`sql.js\` (WASM)** — pure JS but ships ~1 MB of SQLite WASM, is in-memory only (you serialize to disk yourself), and is slower.
+- **Plain JSON files** — simplest, but no typed columns / queryability / measures, and re-reading large scenes is wasteful.
+
+## Rationale
+
+\`node:sqlite\` ships in Node ≥ 22.5 (unflagged on ≥ 23.4 / 24.x, and the project already targets Node 24). **Zero new runtime deps** — the only addition was \`@types/node\` (dev) because the project previously had no node-builtin types. The synchronous \`DatabaseSync\` API is fine here (single write on generate; small reads on meta/list/download). One-file-per-map keeps maps isolated, trivially deletable, and directly downloadable as \`application/vnd.sqlite3\`.
+
+## Consequences
+
+- Runtime requires **Node ≥ 22.5**.
+- The module is **server-only** (imports \`node:sqlite\`) and lives under \`src/lib/server/\` — it must never be imported from client code.
+- \`mapId\` is the sole user-controlled path segment; \`safeMapId()\` slug-validates it (\`^[a-zA-Z0-9_-]{1,80}$\`, rejects \`..\`) — this is the file-path trust boundary, path-traversal tested → 400.
+`,
+  "decisions/pure-three-js-3d-view-no-maplibre.md": `---
+type: Decision
+title: Pure Three.js 3D view (no MapLibre)
+description: Context
+tags: [architecture, rendering, three-js]
+status: accepted
+timestamp: "2026-08-12T18:24:37.399Z"
+---
+
+# Pure Three.js 3D view (no MapLibre)
+
+## Context
+
+The project generates a 3D map of any user-selected area on Earth by fetching
+OpenStreetMap data client-side and rendering it. Two rendering approaches were
+researched before implementation (see the README "Design basis" section):
+
+- **A. MapLibre GL / Mapbox-style 3D** — reuse a mature 3D globe engine that
+  already tiles/serves vector + terrain data.
+- **B. Pure Three.js** — fetch raw OSM via the Overpass API and build the scene
+  by hand (extruded buildings, flat ribbons, flat polygons) on a ground plane
+  sized in real metres.
+
+## Choice
+
+**Option B — pure Three.js.** MapLibre (via \`svelte-maplibre-gl\`) is used *only*
+for the 2D area-selection map (\`src/lib/components/Map.svelte\`); the 3D render
+stage (\`src/lib/components/ThreeMap.svelte\`) is pure Three.js with no MapLibre
+dependency.
+
+## Rationale
+
+- **No data-source coupling**: pure Three.js renders only the elements the user
+  selected, fetched directly from Overpass. A MapLibre 3D engine would bind the
+  result to a tile/terrain provider and its coordinate system.
+- **Full control over geometry**: extrusion depth, per-class road widths, flat
+  water/park polygons, and the building height-ramp vertex colors are all
+  hand-built — none of which a tile-consuming engine exposes cheaply.
+- **Self-contained, deterministic output**: the scene is a function of the bbox
+  + OSM data with no network tile fetching at render time, so it can be exported
+  or inspected as plain geometry.
+- **No API keys / no database**: matches the SMB-stack, key-free,
+  client-side-only constraint.
+
+## Consequences
+
+- The math pipeline (ENU projection in \`src/lib/projection.ts\` + extrusion in
+  \`src/lib/extrude.ts\`) must be implemented and kept correct — see
+  [[keep-math-modules-erasable-syntax-only]] and \`npm run verify\`.
+- MapLibre is deliberately excluded from the dependency optimizer in
+  \`vite.config.ts\` so its v6 worker registers correctly.
+- Raw OSM is classified into the \`SceneData\` descriptor in \`src/lib/osmToScene.ts\`.
+
+## Alternatives considered
+
+MapLibre/Mapbox GL 3D, deck.gl, Cesium — all rejected for binding output to a
+tile/terrain provider and hiding the geometry the project needs to control.
+`,
+  "glossary.md": `---
+type: Glossary
+title: Glossary
+description: Key terms for this project.
+timestamp: "2026-08-12T18:19:33.480Z"
+---
+
+# Glossary
+
+| Term | Definition |
+|------|------------|
+| SMB stack | The project's web stack: SvelteKit 2 + Svelte 5 (runes) + TypeScript strict + Vite + adapter-node. No database. |
+| BBox | Bounding box \`{ minLng, minLat, maxLng, maxLat }\` (\`src/lib/types.ts\`) — the user-selected area and the unit Overpass is tiled against. |
+| Overpass API | A read-only API over OpenStreetMap data; queried client-side (CORS-enabled, key-free) for every element inside the bbox. |
+| Overpass mirror | One public Overpass endpoint (\`overpass-api.de\`, \`kumi.systems\`, \`private.coffee\`). Each has an independent per-IP rate budget, so failover rotates across them. |
+| Cell / tiling | The bbox is split into ~0.05° (~5 km) cells (capped at ≤16) so public mirrors answer fast; heavy cells are subdivided ×4 and retried. |
+| OSM element | A node, way, or relation from OpenStreetMap. Ways and relations are returned by Overpass \`out geom;\` with inline geometry. |
+| Multipolygon | An OSM relation with \`outer\`/\`inner\` member rings; buildings and water/parks use the largest closed outer ring plus inner rings as holes. |
+| ENU projection | East-North-Up local projection: lon/lat → metres \`{ x: east, y: north }\` anchored at the bbox center. Implemented as an equirectangular approximation. |
+| Equirectangular (Option B) | The chosen projection: \`xEast = (lon−lon0)·(π/180)·R·cos(lat0)\`, \`yNorth = (lat−lat0)·(π/180)·R\`. \`cos(lat)\` frozen at the anchor. |
+| Shape → ExtrudeGeometry | Three.js recipe: build a \`THREE.Shape\` in local metres, extrude with \`depth = h − hMin\`, then \`rotateX(−π/2)\` so north maps to −Z and height to +Y up. |
+| Winding normalization | Outer rings must be CCW and holes CW for correct normals; \`ShapeUtils.isClockWise\` flips OSM rings of unknown winding. |
+| Height fallback ladder | \`height ?? 3·(building:levels ?? 1) [+ 3·roof:levels]\`, \`min_height ?? 3·building:min_level\`, clamped 0–500 m; if depth ≤ 0 the min height is dropped. |
+| SceneData | The classified scene descriptor (\`src/lib/osmScene.ts\`): \`buildings\`, \`roads\`, \`flats\`, and the source \`bbox\`. What \`ThreeMap.svelte\` renders. |
+| Height ramp | Building vertex-color gradient \`#aaccbb → royalblue → purple\` at 0/200/400 m, applied per-vertex on the merged building geometry. |
+| Ribbon / flat geometry | Roads become flat triangulated ribbons along centerlines (width by highway class); water/green become flat \`ShapeGeometry\` polygons with holes. |
+| Asymptotic progress | UI rule: the progress bar creeps toward a cap that rises with real cell progress (max 99%), never holds flat, and only reaches 100% once the scene is rendered. |
+| \`npm run verify\` | A pure-Node round-trip self-check (\`scripts/verify.mjs\`) that pins projection scale, axis orientation, winding, ring cleaning, and the height ladder — catching a swapped axis that \`svelte-check\` cannot. |
+| Erasable-syntax-only | Constraint on \`projection.ts\` / \`extrude.ts\` / \`osmToScene.ts\`: no enums/namespaces, so Node's type stripping can run them directly in \`verify\`. |
+| base-map-gen | Sibling project (\`../base-map-gen\`) whose Overpass tiling/failover and selection-map conventions this project reuses. |
+`,
+  "index.md": `---
+okf_version: "0.1"
+---
+
+# Project Knowledge Wiki
+
+<!-- wiki-nav:start -->
+## Navigation map
+
+Auto-generated detailed index of every docs/wiki/ concept — the map the LLM uses to locate information. 4 concept(s). Regenerated on init and on wiki_mark_synced. Generated 2026-08-12T18:18:13.754Z.
+
+Each entry: \`concept-id\` (pass to wiki_get) — title — description.
+
+### Core concepts
+
+- \`glossary\` — Glossary — Key terms for this project.
+- \`overview\` — Overview — What this project contains and its structure.
+
+### Architecture
+
+- \`architecture/file-tree\` — architecture/file-tree
+
+### Pages
+
+- \`pages/TEMPLATES\` — Page Templates — Reference templates for Concept, Entity, and Artifact pages. Follow these when using wiki_note_page.
+<!-- wiki-nav:end -->
+
+An [OKF](https://github.com/earendil-works/okf) bundle documenting this project.
+
+- [Overview](./overview.md) — What this project contains and its structure
+- [File tree](./architecture/file-tree.md) — Complete project file listing
+- [Glossary](./glossary.md) — Key terms for this project
+- [Decisions](./decisions/) — Major decisions and direction shifts (ADRs)
+- [Rules](./rules/) — Reusable heuristics, guidelines, and conventions
+- [Pages](./pages/) — Concepts, entities, and artifacts of this project
+- [Learnings](./learnings/) — Captured learnings and insights
+- [Preferences](./preferences/) — Captured preferences and conventions
+`,
+  "learnings/index.md": `# Learnings
+
+_Captured learnings will be listed here._
+- [Redeclare the discriminant field as a literal on each union variant](./redeclare-discriminant-as-literal.md) - In \`src/lib/osmToScene.ts\`, \`BuildingPrism\` / \`RoadLine\` / \`FlatPoly\` extend \`MapObjectBase\`, whose \`kind: ObjectKind\` is the broad union \`'building' | 'road' |
+`,
+  "learnings/redeclare-discriminant-as-literal.md": `---
+type: Learning
+title: Redeclare the discriminant field as a literal on each union variant
+description: "In \`src/lib/osmToScene.ts\`, \`BuildingPrism\` / \`RoadLine\` / \`FlatPoly\` extend \`MapObjectBase\`, whose \`kind: ObjectKind\` is the broad union \`'building' | 'road' |"
+tags: [typescript, types, gotcha]
+timestamp: "2026-08-12T19:00:05.467Z"
+---
+
+# Redeclare the discriminant field as a literal on each union variant
+
+In \`src/lib/osmToScene.ts\`, \`BuildingPrism\` / \`RoadLine\` / \`FlatPoly\` extend \`MapObjectBase\`, whose \`kind: ObjectKind\` is the broad union \`'building' | 'road' | 'water' | 'green' | 'map'\`. **Inheriting that broad type means each subclass's \`kind\` is still the full union**, so \`SceneObject = BuildingPrism | RoadLine | FlatPoly\` is *not* a real discriminated union: a \`switch (o.kind)\` won't narrow \`o\` to the right variant, and \`o.outer\` / \`o.points\` won't type-check under the branch you expect.
+
+## Fix
+
+Redeclare \`kind\` as a **literal** on each variant:
+
+- \`BuildingPrism { kind: 'building'; ... }\`
+- \`RoadLine { kind: 'road'; ... }\`
+- \`FlatPoly { kind: 'water' | 'green'; ... }\` (narrows \`MapObjectBase.kind\`)
+
+Then TypeScript narrows correctly per branch.
+
+## Why it bit us
+
+The base interface looked "typed enough" because \`kind\` had a named union type, so the missing per-variant literal was invisible until code tried to branch on it. General TS rule, but it surfaced here on the scene-object model — the fix lives in \`src/lib/osmToScene.ts\`.
+`,
+  "overview.md": `---
+type: System Overview
+title: Overview
+description: What this project contains and its structure.
+timestamp: "2026-08-12T19:00:32.673Z"
+---
+
+# Overview
+
+**mapmaker** is a pure-**Three.js** 3D map generator built on the SMB stack
+(SvelteKit 2 + Svelte 5 runes + TypeScript strict + Vite + adapter-node). A user
+draws a box or freehand polygon on a 2D world map, every OpenStreetMap element
+inside that area is fetched **client-side** from the Overpass API, and the result is rendered as a
+pure Three.js 3D scene — extruded building prisms, flat road ribbons, flat
+water/park polygons, and a ground plane sized in real metres. There is **no
+MapLibre in the 3D view** (MapLibre via \`svelte-maplibre-gl\` is used *only* for
+the 2D area-selection map). Persisted maps live as **one SQLite file per map**
+(\`data/maps/<mapId>.sqlite\`, written via the stdlib \`node:sqlite\`) — there is no
+shared/central database. See [[map-persistence-and-rest-api]].
+
+## How it works (four stages)
+
+1. **Select** — \`src/lib/components/Map.svelte\` is the only MapLibre surface: a
+   CARTO Positron base style with a **▢ Rectangle / ✎ Freeform** toggle. Rectangle
+   is click-drag box-draw; Freeform is click-drag to trace a freehand polygon
+   (release to finish, throttled to ~3px spacing). The drawn area is emitted as an
+   \`Area\` (\`src/lib/types.ts\`): \`{ type: 'bbox'; bbox }\` or
+   \`{ type: 'polygon'; ring }\`. A freeform polygon is resolved at generate time by
+   querying its bbox and client-side filtering — see
+   [[freeform-area-selection-via-bbox-query-client-side-point-in-]].
+2. **Generate** — \`src/lib/overpass.ts\` tiles the bbox into ~0.05° cells, queries
+   each cell against public Overpass mirrors (CORS-enabled, key-free), subdivides
+   heavy cells (406/413/504) ×4 and retries, dedupes border elements by OSM id,
+   and fails over across mirrors with independent per-IP rate buckets plus a
+   per-mirror \`AbortController\` timeout. \`src/routes/+page.svelte\` runs the
+   extraction with an asymptotic progress bar that creeps toward 99% and only
+   shows 100% when the scene is rendered.
+3. **Render** — \`src/lib/osmToScene.ts\` classifies raw OSM elements into a
+   \`SceneData\` descriptor (buildings with heights, roads with per-class widths,
+   flat water/green polygons). \`src/lib/components/ThreeMap.svelte\` projects
+   lon/lat → local metres (\`src/lib/projection.ts\`, equirectangular ENU anchored
+   at the bbox center), extrudes buildings (\`src/lib/extrude.ts\`), merges one
+   \`BufferGeometry\` per category (stamping a per-vertex \`objId\` so merged meshes
+   stay individually clickable — see [[merged-geometry-object-identity-per-vertex-objid]]),
+   paints a height-ramp vertex color on buildings, and flies an \`OrbitControls\`
+   camera through 5 presets (top/iso/low/high/side, top-down default) plus
+   rotate/tilt nudges (\`src/lib/view.ts\`).
+4. **Persist & inspect** — on generate the scene is \`POST\`ed to
+   \`POST /api/maps\`, which writes the per-map SQLite file with server-computed
+   \`area_m²\` / \`length_m\` per element (\`src/lib/server/db.ts\`). Clicking any
+   object raycasts back to its OSM identity and opens a slide-in
+   \`src/lib/components/InfoDrawer.svelte\` (name, OSM type/id + openstreetmap.org
+   link, derived stats from \`src/lib/measure.ts\`, full tag set, and the map's
+   SQLite download). Endpoints: \`GET /api/maps\` (list), \`GET /api/maps/[id]\`
+   (meta), \`GET /api/maps/[id]/download\` (file).
+
+## Source layout
+
+Application code lives in \`src/lib/\` plus the page and API routes in
+\`src/routes/\`. Everything is \`strict\` TypeScript:
+
+- **Domain modules** (\`src/lib/\`): \`projection.ts\`, \`extrude.ts\`, \`osmToScene.ts\`,
+  \`overpass.ts\`, \`clip.ts\` (freeform-selection geometry: bbox-of-ring + even-odd
+  point-in-polygon + keep-if-any-node-inside), \`types.ts\`, plus \`measure.ts\`
+  (local-metre area/length/format helpers for the drawer) and \`view.ts\` (the
+  imperative camera \`ViewController\` API). \`src/lib/server/db.ts\` is the
+  **server-only** SQLite persistence module.
+- **Components** (\`src/lib/components/\`): \`Map.svelte\` (2D selection),
+  \`ThreeMap.svelte\` (3D viewport + picking + camera), \`InfoDrawer.svelte\`
+  (inspect/download panel).
+- **Routes** (\`src/routes/\`): \`+page.svelte\` (orchestrates select → generate →
+  render → persist) and \`src/routes/api/maps/\` (the REST surface).
+
+The math-heavy modules (\`projection.ts\`, \`extrude.ts\`, \`osmToScene.ts\`) are kept
+**erasable-syntax-only** (no enums/namespaces) so that \`scripts/verify.mjs\`
+(\`npm run verify\`) can import them directly via Node ≥ 22.18 type stripping — a
+pure-Node self-check that pins the projection/extrusion orientation, which
+\`svelte-check\` cannot catch. \`vite.config.ts\` excludes \`svelte-maplibre-gl\` /
+\`maplibre-gl\` from the dependency optimizer so the MapLibre v6 worker registers
+correctly.
+
+## Research basis
+
+The pipeline was researched before implementation (the research-chain markdown
+files were stripped in 2026-10 once the findings were folded into the code and
+README "Design basis" section). Key basis: the projection + extrusion math cheat
+sheet implemented in \`projection.ts\` / \`extrude.ts\`, and the Overpass
+client-side streaming gotchas implemented in \`overpass.ts\`. Conventions were
+lifted from the sibling \`../base-map-gen\` project (Overpass tiling/failover and
+the selection-map).
+`,
+  "pages/artifacts/index.md": `# Artifacts
+
+_Documents, diagrams, and deliverables will be listed here._
+`,
+  "pages/concepts/index.md": `# Concepts
+
+_Abstract ideas and definitions will be listed here._
+- [Merged-geometry object identity (per-vertex objId)](./merged-geometry-object-identity-per-vertex-objid.md) - What is it?
+`,
+  "pages/concepts/merged-geometry-object-identity-per-vertex-objid.md": `---
+type: Concept
+title: Merged-geometry object identity (per-vertex objId)
+description: What is it?
+tags: [three-js, rendering, interaction, picking]
+timestamp: "2026-08-12T19:00:05.467Z"
+---
+
+# Merged-geometry object identity (per-vertex objId)
+
+## What is it?
+
+A technique for keeping per-source-object identity **after** many geometries are merged into one Three.js \`BufferGeometry\` per category. Each renderable object is assigned an index into a \`pickList\`; before merging, its geometry is given a per-vertex \`objId\` \`BufferAttribute\` set to that index (every vertex of the object carries the same id). On a raycast hit, \`geometry.getAttribute('objId').array[hit.faceIndex * 3]\` resolves straight back to the source object.
+
+## Why does it matter?
+
+Rendering one merged geometry per category (buildings / roads / water / green) is what makes the scene cheap to draw. Naively merging throws away *which triangle belonged to which OSM object*, so click-to-inspect would be impossible. This keeps the performance of merging **and** makes every object individually selectable.
+
+## Key rules / properties
+
+- \`objId\` must be **uniform across all vertices of one object** — write it as a 1-component attribute with the object's index repeated for every vertex.
+- The **ground plane intentionally has no \`objId\` attribute** → a raycast hit with no \`objId\` is interpreted as a "map" selection (opens the map-overview drawer).
+- Read \`faceIndex * 3\` (the first vertex of the hit triangle) from the attribute array.
+- Works because \`raycast.faceIndex\` indexes into the merged index buffer, which stays aligned with the per-vertex attribute.
+
+## Relationships
+
+- [map-persistence-and-rest-api](../entities/map-persistence-and-rest-api.md) — both surfaces read the same \`MapObjectBase\` identity (\`id\`, \`osmType\`, \`osmId\`, \`tags\`), so a click and a DB row refer to the same object.
+
+## Source
+
+- \`src/lib/components/ThreeMap.svelte\` — \`stampObjectIds()\` + the pick/raycast handler.
+`,
+  "pages/entities/index.md": `# Entities
+
+_Concrete named things will be listed here._
+- [Map persistence and REST API](./map-persistence-and-rest-api.md) - Server-side subsystem that persists each generated map to its own SQLite file and exposes it over HTTP. One map = one file = one database under \`data/maps/<mapI
+- [Standalone map route (/map/[mapId])](./standalone-map-route-map-mapid.md) - A full-viewport SSR route that renders **one persisted map** with just the 3D
+`,
+  "pages/entities/map-persistence-and-rest-api.md": `---
+type: Entity
+title: Map persistence and REST API
+description: Server-side subsystem that persists each generated map to its own SQLite file and exposes it over HTTP. One map = one file = one database under \`data/maps/<mapI
+tags: [persistence, sqlite, api, server]
+timestamp: "2026-08-12T19:00:05.467Z"
+---
+
+# Map persistence and REST API
+
+Server-side subsystem that persists each generated map to its own SQLite file and exposes it over HTTP. One map = one file = one database under \`data/maps/<mapId>.sqlite\`. This is the project's **first persistence layer** — until this turn the app had no database.
+
+## Role
+
+Lets generated maps survive a page reload, be listed/inspected by metadata, and be downloaded as a self-contained \`.sqlite\`. The download carries server-computed \`area_m²\` / \`length_m\` per element so the data is useful outside the app. Built on stdlib \`node:sqlite\` (decision record "Use stdlib node:sqlite for map persistence", in \`decisions/\`).
+
+## Details
+
+- **Location**: \`src/lib/server/db.ts\` (storage) + \`src/routes/api/maps/+server.ts\`, \`src/routes/api/maps/[id]/+server.ts\`, \`src/routes/api/maps/[id]/download/+server.ts\` (HTTP).
+- **Schema** (per file):
+  - \`map\` — \`id\` PK, \`created_at\`, bbox (\`min/max_lng/lat\`), element counts (\`n_buildings/roads/water/green\`).
+  - \`element\` — \`rowid\`, \`osm_type\`, \`osm_id\`, \`kind\`, \`name\`, \`height\`, \`min_height\`, \`width\`, \`area_m2\`, \`length_m\`, \`tags\` (JSON), \`geometry\` (JSON); index on \`kind\`.
+- **Endpoints**:
+  - \`POST /api/maps\` — write/overwrite a map (\`201\`).
+  - \`GET /api/maps\` — list all maps, newest-first.
+  - \`GET /api/maps/[id]\` — metadata (\`404\` if unknown).
+  - \`GET /api/maps/[id]/download\` — stream the \`.sqlite\` as \`application/vnd.sqlite3\`.
+- **Trust boundary**: \`mapId\` is the only user-controlled path segment; \`safeMapId()\` restricts to \`^[a-zA-Z0-9_-]{1,80}$\` and rejects \`..\` → path-traversal returns \`400\`. \`bbox\` is validated; bad JSON → \`400\`; unknown id → \`404\`.
+- **Configuration**: \`MAPS_DIR = <cwd>/data/maps\` (auto-created). Requires Node ≥ 22.5 for \`node:sqlite\`.
+- **Measures**: computed server-side via \`makeProjector\` anchored at the bbox centre (same ENU anchor as the 3D render) — \`area_m²\` for polygons (minus holes), \`length_m\` for polylines.
+
+## Relationships
+
+- [merged-geometry-object-identity-per-vertex-objid](../concepts/merged-geometry-object-identity-per-vertex-objid.md) — the client picking that feeds the same object identity.
+- Reuses \`src/lib/projection.ts\` (\`makeProjector\`) for server-side measures.
+
+## Lifecycle
+
+- First added: this turn — introduces the project's first persistence layer (overview previously stated "no database").
+`,
+  "pages/entities/standalone-map-route-map-mapid.md": `---
+type: Entity
+title: "Standalone map route (/map/[mapId])"
+description: A full-viewport SSR route that renders **one persisted map** with just the 3D
+tags: [route, sveltekit, ssr, maps, persistence]
+timestamp: "2026-08-12T19:09:15.809Z"
+---
+
+# Standalone map route (/map/[mapId])
+
+A full-viewport SSR route that renders **one persisted map** with just the 3D
+viewport — no area-selection map, no generator. The URL is shareable, opens in a
+new tab, and survives a refresh, because it loads straight from the map's own
+SQLite file.
+
+## Why it matters
+
+Before this route, a generated map only existed in memory on the main page.
+\`/map/[mapId]\` makes a saved map a **first-class, linkable resource**: the corner
+\`↗\` link on the main page points here, and any \`/api/maps/[id]\` mapId resolves to
+a real page. It shares the same camera presets and the **InfoDrawer** panel as the main
+view so the map stays usable.
+
+## Details
+
+- **Location**:
+  - \`src/routes/map/[id]/+page.server.ts\` — \`PageServerLoad\`: normalizes the id
+    via \`safeMapId\`, calls \`readMapScene(id)\`, throws \`error(404, …)\` when the id
+    is malformed or no map exists (handles traversal and unknown ids).
+  - \`src/routes/map/[id]/+page.svelte\` — fixed full-screen layout; camera-preset
+    bar + rotate/tilt nudges; \`← Back\` link to \`/\`. \`scene\` is \`$derived(data.scene)\`
+    (data is reactive, so the capture must be reactive too).
+- **Data source**: \`readMapScene(id)\` in \`src/lib/server/db.ts\` — the inverse of
+  the write path. Reads the \`map\` row + every \`element\` row, \`JSON.parse\`s each
+  row's \`tags\` / \`geometry\`, and reconstructs a full \`SceneData\` (buildings,
+  roads, flats with heights/widths/holes/names). Returns \`null\` when the map
+  file is absent. Uses \`readOnly\` SQLite.
+- **Entry point on the main page**: \`src/routes/+page.svelte\` renders an
+  \`<a class="ext" href="/map/\${scene.meta.mapId}" target="_blank" rel="noopener">↗</a>\`
+  in the top-right corner of the 3D viewport.
+- **Passes through**: \`selectedObj\` highlight to \`ThreeMap\` so the standalone
+  page gets the same per-object selection feedback as the main page.
+
+## Relationships
+
+- \`[map-persistence-and-rest-api](./map-persistence-and-rest-api.md)\` — the REST surface
+  (\`GET /api/maps/[id]\`, \`…/download\`) this route parallels; both read the same
+  per-map SQLite files.
+- **ThreeMap** (\`src/lib/components/ThreeMap.svelte\`) — the 3D component rendered full-viewport.
+- **InfoDrawer** (\`src/lib/components/InfoDrawer.svelte\`) — inspect/download panel reused unchanged.
+
+## Lifecycle
+
+- First added: this turn, to satisfy "page with only the map in it" plus an
+  external link in the corner of the main 3D view. Reconstructing \`SceneData\`
+  from SQLite required the new \`readMapScene\` loader.
+`,
+  "pages/index.md": `# Pages
+
+Knowledge graph: concepts, entities, and artifacts that make up this project.
+
+- [Concepts](./concepts/) — Abstract ideas, definitions, and categories
+- [Entities](./entities/) — Concrete named things, systems, tools, and records
+- [Artifacts](./artifacts/) — Documents, diagrams, code files, and deliverables
+- [Merged-geometry object identity (per-vertex objId)](./concepts/merged-geometry-object-identity-per-vertex-objid.md) — What is it?
+ to its own SQLite file and exposes it over HTTP. One map = one file = one database under \`data/maps/<mapI
+- [Standalone map route (/map/[mapId])](./entities/standalone-map-route-map-mapid.md) — A full-viewport SSR route that renders **one persisted map** with just the 3D
+`,
+  "pages/TEMPLATES.md": `---
+type: Concept
+title: Page Templates
+description: Reference templates for Concept, Entity, and Artifact pages. Follow these when using wiki_note_page.
+timestamp: 2026-08-12T18:18:02.234Z
+---
+# Page Templates
+
+Use these when documenting the projectbase with \`wiki_note_page\`. Each type has
+a stable structure so pages are consistent, skimmable, and well-linked.
+
+## Concept (abstract ideas, definitions, patterns, categories)
+
+\`\`\`markdown
+## What is it?
+[One paragraph — clear definition the team can agree on.]
+
+## Why does it matter?
+[What problem it solves, what depends on it, or what would break without it.]
+
+## Key rules / properties
+- [Characteristic or invariant]
+- [Edge case to watch for]
+
+## Relationships
+- [[entity-that-implements-this]] — how
+- [[related-concept]] — how
+
+## Source
+- \\\`path/to/file.ts\\\` — implements or references this concept
+\`\`\`
+
+## Entity (concrete named things: endpoints, services, models, tools)
+
+\`\`\`markdown
+## What is it?
+[Concrete thing — what it IS, where it lives.]
+
+## Why does it matter?
+[Its role in the system, who/what depends on it.]
+
+## Details
+- **Location**: \\\`path/to/file\\\`
+- **Interface / Schema**: [key fields, methods, routes, or shape]
+- **Configuration**: [env vars, flags, settings]
+
+## Relationships
+- [[concept-it-implements]] — what abstract idea this instantiates
+- [[entity-it-depends-on]] — dependency or peer
+
+## Lifecycle
+- First added: [when, why]
+- Significant changes: [date — what changed]
+\`\`\`
+
+## Artifact (deliverables: diagrams, reports, specs, configs, screenshots)
+
+\`\`\`markdown
+## What is it?
+[Document, diagram, report, or file — what it contains.]
+
+## What it documents
+- [[entity-or-concept]] — what this artifact describes or supports
+
+## Details
+- **Format**: [diagram type, file format, tool used]
+- **Location**: \\\`path/to/file\\\`
+
+## Source
+- Generated from: [what data, process, or session produced it]
+\`\`\`
+`,
+  "preferences/index.md": `# Preferences
+
+_Captured preferences will be listed here._
+`,
+  "rules/highlight-picked-3d-objects-in-three-js-not-via-css.md": `---
+type: Rule
+title: Highlight picked 3D objects in Three.js, not via CSS
+description: Guideline
+tags: [three-js, webgl, selection, ui]
+timestamp: "2026-08-12T19:09:15.809Z"
+---
+
+# Highlight picked 3D objects in Three.js, not via CSS
+
+## Guideline
+
+Per-object styling in the 3D view (selected / hovered buildings, roads, or flats)
+must be done **inside Three.js** — never via CSS classes or ids on the objects.
+
+The project's chosen implementation: rebuild a single \`THREE.LineSegments\` from
+\`EdgesGeometry\` of the selected object's own geometry, drawn in a highlight
+colour, on every \`selectedObj\` change. No un-merging of the merged category
+meshes, no custom shaders, no separate outline pass.
+
+## When it applies
+
+Any time you want to visually distinguish a picked element in the 3D viewport
+(\`ThreeMap.svelte\`).
+
+## Rationale
+
+The entire 3D scene renders into **one WebGL \`<canvas>\` DOM node**. CSS can
+target the canvas itself, but has no access to individual meshes inside it —
+this is a fundamental WebGL limit, not a Three.js choice, so CSS-based
+"per-object selection" is impossible regardless of class/id tags.
+
+DOM-side chrome around the viewport (toolbar, [[info-drawer]], corner links)
+uses normal CSS classes as usual.
+
+## Known ceiling
+
+Edges-only: a filled / translucent selection tint would need depth-offset
+handling to avoid z-fighting against the merged surface. Add that only if edge
+highlighting proves insufficient. Marked in code as a deliberate simplification.
+
+## Evidence
+
+- \`src/lib/components/ThreeMap.svelte\` — \`setHighlight()\` / \`clearHighlight()\`
+  rebuild the \`LineSegments\` overlay from the selected object's geometry; the
+  \`HL_MAT\` constant holds the highlight material.
+`,
+  "rules/index.md": `# Rules
+
+- [Keep math modules erasable-syntax-only](./keep-math-modules-erasable-syntax-only.md) - Guideline
+- [Highlight picked 3D objects in Three.js, not via CSS](./highlight-picked-3d-objects-in-three-js-not-via-css.md) - Guideline
+`,
+  "rules/keep-math-modules-erasable-syntax-only.md": `---
+type: Rule
+title: Keep math modules erasable-syntax-only
+description: Guideline
+tags: [typescript, tooling, convention]
+timestamp: "2026-08-12T18:23:13.160Z"
+---
+
+# Keep math modules erasable-syntax-only
+
+## Guideline
+
+The math-heavy modules — \`src/lib/projection.ts\`, \`src/lib/extrude.ts\`, and
+\`src/lib/osmToScene.ts\` — must stay **erasable-syntax-only**: no TypeScript
+\`enum\`s, no \`namespace\`s, and nothing else that requires real type
+transpilation rather than type *stripping*.
+
+## When it applies
+
+Any edit to those three files. Equivalent modules added later that
+\`scripts/verify.mjs\` should round-trip should follow the same constraint.
+
+## Rationale
+
+\`npm run verify\` (\`scripts/verify.mjs\`) imports these files directly via Node
+≥ 22.18 native type stripping. Node's type *stripper* can erase type
+annotations, type imports, and \`as\` casts, but it **cannot** transform
+\`enum\`/\`namespace\` declarations — those are real runtime constructs that need
+compilation. Adding one breaks \`verify\`, which is the only check that pins
+projection scale, axis orientation, winding normalization, and the height
+ladder — things \`svelte-check\` cannot catch.
+
+## How to honor it
+
+- Prefer \`const\` unions / object maps over \`enum\`.
+- Prefer module-scope functions/objects over \`namespace\`.
+- If a construct requires real transpilation, move it to a *different* file and
+  import the result.
+
+## Source
+
+- \`scripts/verify.mjs\` — the pure-Node self-check that runs these files.
+- [[pure-three-js-3d-view-no-maplibre]] — why this pipeline exists at all.
+`,
+  "rules/progress-bar-must-be-asymptotic-never-flat.md": `---
+type: Rule
+title: Progress bar must be asymptotic, never flat
+description: Guideline
+tags: [ux, frontend, convention]
+timestamp: "2026-08-12T18:23:13.160Z"
+---
+
+# Progress bar must be asymptotic, never flat
+
+## Guideline
+
+The generation progress bar (\`src/routes/+page.svelte\`) must be **asymptotic**:
+it creeps toward a cap that rises with real cell progress (maximum 99%), never
+holds flat for long, and reaches **100% only once the scene is rendered**.
+
+## When it applies
+
+Any UI that reports progress for the Overpass fetch + scene-build pipeline.
+
+## Rationale
+
+Client-side Overpass extraction is variable-latency: cells subdivide and retry,
+mirrors fail over, and rendering is a separate stage after the last cell.
+A bar that fills to 100% at "fetch done" then freezes during rendering looks
+broken. The asymptotic rule keeps the bar moving honestly toward the *actual*
+milestone the user cares about — a visible scene — and only completes there.
+
+## How to honor it
+
+- Cap the bar below 100% during fetch; raise the cap as real cell progress
+  increases.
+- Keep the bar creeping (never constant) so the app never appears hung.
+- Set 100% only after \`ThreeMap\` finishes its first render.
+`,
+};
+var WIKI_PAGES = [
+    { path: "index.md", label: "Project Knowledge Wiki", group: "" },
+    { path: "glossary.md", label: "Glossary", group: "" },
+    { path: "overview.md", label: "Overview", group: "" },
+    { path: "architecture/file-tree.md", label: "File tree", group: "Architecture" },
+    { path: "decisions/index.md", label: "Decisions", group: "Decisions" },
+    { path: "decisions/freeform-area-selection-via-bbox-query-client-side-point-in-.md", label: "Freeform area selection via bbox query + client-side point-in-polygon filter", group: "Decisions" },
+    { path: "decisions/pure-three-js-3d-view-no-maplibre.md", label: "Pure Three.js 3D view (no MapLibre)", group: "Decisions" },
+    { path: "decisions/node-sqlite-for-map-persistence.md", label: "Use stdlib node:sqlite for map persistence (not better-sqlite3)", group: "Decisions" },
+    { path: "learnings/index.md", label: "Learnings", group: "Learnings" },
+    { path: "learnings/redeclare-discriminant-as-literal.md", label: "Redeclare the discriminant field as a literal on each union variant", group: "Learnings" },
+    { path: "pages/TEMPLATES.md", label: "Page Templates", group: "Pages" },
+    { path: "pages/index.md", label: "Pages", group: "Pages" },
+    { path: "pages/artifacts/index.md", label: "Artifacts", group: "Pages / Artifacts" },
+    { path: "pages/concepts/index.md", label: "Concepts", group: "Pages / Concepts" },
+    { path: "pages/concepts/merged-geometry-object-identity-per-vertex-objid.md", label: "Merged-geometry object identity (per-vertex objId)", group: "Pages / Concepts" },
+    { path: "pages/entities/index.md", label: "Entities", group: "Pages / Entities" },
+    { path: "pages/entities/map-persistence-and-rest-api.md", label: "Map persistence and REST API", group: "Pages / Entities" },
+    { path: "pages/entities/standalone-map-route-map-mapid.md", label: "Standalone map route (/map/[mapId])", group: "Pages / Entities" },
+    { path: "preferences/index.md", label: "Preferences", group: "Preferences" },
+    { path: "rules/highlight-picked-3d-objects-in-three-js-not-via-css.md", label: "Highlight picked 3D objects in Three.js, not via CSS", group: "Rules" },
+    { path: "rules/keep-math-modules-erasable-syntax-only.md", label: "Keep math modules erasable-syntax-only", group: "Rules" },
+    { path: "rules/progress-bar-must-be-asymptotic-never-flat.md", label: "Progress bar must be asymptotic, never flat", group: "Rules" },
+    { path: "rules/index.md", label: "Rules", group: "Rules" }
+];
+(function(){
+var a=document.getElementById("hljs-light"),d=document.getElementById("hljs-dark"),t=document.getElementById("themeToggle"),i=document.getElementById("themeIcon");
+function g(){try{return localStorage.getItem("mdv-theme")||"auto"}catch(e){return"auto"}}
+function l(o){var h=document.documentElement;h.setAttribute("data-theme",o);var k=o==="dark"||(o==="auto"&&window.matchMedia("(prefers-color-scheme: dark)").matches);h.classList.toggle("system-dark",o==="auto"&&window.matchMedia("(prefers-color-scheme: dark)").matches);a.disabled=k;d.disabled=!k;i.innerHTML=k?'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>':'<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';t.title=k?"Switch to light mode":"Switch to dark mode"}
+l(g());t.addEventListener("click",function(){var o=g(),h=o==="auto"?"light":o==="light"?"dark":"auto";try{localStorage.setItem("mdv-theme",h)}catch(e){}l(h)});window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",function(){if(g()==="auto")l("auto")});
+var s=document.getElementById("sidebar"),sc=document.getElementById("sidebarScroll"),o=document.getElementById("output"),fn=document.getElementById("fileName"),bc=document.getElementById("breadcrumbCurrent"),bh=document.getElementById("breadcrumbHome"),bb=document.getElementById("backBtn"),fb=document.getElementById("fwdBtn"),hm=document.getElementById("homeBtn"),st=document.getElementById("sidebarToggle"),cs=document.getElementById("closeSidebarBtn"),cp="index.md",hs=[],hi=-1;
+function es(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function at(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function rl(fp,ln){if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(ln))return null;if(ln.startsWith("#"))return null;var d=fp.lastIndexOf("/"),r=d>=0?fp.substring(0,d)+"/"+ln:ln;r=r.replace(/^\.\//,"");if(r.endsWith("/"))r+="index.md";if(!r.endsWith(".md"))r+="/index.md";r=r.replace(/\/\//g,"/");var p=r.split("/"),o=[];for(var i=0;i<p.length;i++){if(p[i]===".")continue;if(p[i]===".."&&o.length>0)o.pop();else if(p[i]!=="")o.push(p[i])}return o.join("/")}
+function fm(p){return WIKI_CONTENT[p]?Promise.resolve(WIKI_CONTENT[p]):Promise.reject(new Error('Page "'+p+'" not found'))}
+function rm(t,p){var c=t.replace(/^---[\s\S]*?---\s*/,""),h;if(typeof marked!=="undefined"){marked.setOptions({gfm:true,breaks:false});h=marked.parse(c)}else{h="<pre>"+es(c)+"</pre>"}o.innerHTML=h;if(typeof hljs!=="undefined"){o.querySelectorAll("pre code").forEach(function(b){hljs.highlightElement(b)})}o.querySelectorAll("a").forEach(function(a){var h=a.getAttribute("href");if(!h)return;if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(h)){a.setAttribute("target","_blank");a.setAttribute("rel","noopener noreferrer");return}if(h.startsWith("#")){a.addEventListener("click",function(e){e.preventDefault();var el=document.getElementById(h.substring(1));if(el)el.scrollIntoView({behavior:"smooth"})});return}a.addEventListener("click",function(e){e.preventDefault();var r=rl(p,h);if(r)nn(r)})});var h1=o.querySelector("h1");return h1?h1.textContent:p.replace(/\.md$/,"").split("/").pop()}
+function nn(p,ph){if(ph===undefined)ph=true;p=p.replace(/^\.\//,"");if(p.endsWith("/"))p+="index.md";if(!p.endsWith(".md"))p+="/index.md";var pp=cp;cp=p;us(p);o.innerHTML='<div class="loading-state"><div class="spinner"></div><p>Loading '+es(p)+'...</p></div>';fm(p).then(function(t){var ti=rm(t,p);fn.textContent=ti;bc.textContent=ti;if(ph){hs=hs.slice(0,hi+1);hs.push(p);hi=hs.length-1;ub();try{window.history.pushState({path:p},"","#"+p)}catch(e){}}}).catch(function(e){o.innerHTML='<div class="error-banner">Could not load <strong>'+es(p)+"</strong>: "+es(e.message)+"</div>";fn.textContent="Error";bc.textContent="Error loading page";cp=pp;us(cp)})}
+function us(p){sc.querySelectorAll(".tree-item").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-path")===p)})}
+function ub(){bb.disabled=hi<=0;fb.disabled=hi>=hs.length-1}
+function gb(){if(hi>0){hi--;nn(hs[hi],false);ub();try{window.history.replaceState({path:hs[hi]},"","#"+hs[hi])}catch(e){}}}
+function gf(){if(hi<hs.length-1){hi++;nn(hs[hi],false);ub();try{window.history.replaceState({path:hs[hi]},"","#"+hs[hi])}catch(e){}}}
+function gh(){nn("index.md")}
+function bt(){var g={};WIKI_PAGES.forEach(function(p){var gr=p.group||"";if(!g[gr])g[gr]=[];g[gr].push(p)});var gn=Object.keys(g).sort(function(a,b){if(a===""||a==="Architecture")return -1;if(b===""||b==="Architecture")return 1;return a.localeCompare(b)});var h="";gn.forEach(function(gr){if(gr)h+='<div class="tree-group-label">'+es(gr)+"</div>";g[gr].forEach(function(p){h+='<button class="tree-item'+(p.path===cp?" active":"")+'" data-path="'+at(p.path)+'"><svg class="tree-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="tree-label">'+es(p.label)+"</span></button>"})});sc.innerHTML=h;sc.querySelectorAll(".tree-item").forEach(function(b){b.addEventListener("click",function(){nn(b.getAttribute("data-path"));if(window.innerWidth<=768)s.classList.remove("show-mobile")})})}
+bb.addEventListener("click",gb);fb.addEventListener("click",gf);hm.addEventListener("click",gh);bh.addEventListener("click",gh);st.addEventListener("click",function(){if(window.innerWidth<=768){s.classList.toggle("show-mobile")}else{s.style.display=s.style.display==="none"?"flex":"none"}});cs.addEventListener("click",function(){s.style.display="none"});window.addEventListener("popstate",function(e){if(e.state&&e.state.path){var idx=hs.indexOf(e.state.path);if(idx>=0){hi=idx;nn(e.state.path,false);ub()}else{nn(e.state.path)}}});
+bt();var ip="index.md";if(window.location.hash){var hp=window.location.hash.substring(1);if(hp.endsWith(".md")||hp.endsWith("/")){ip=hp.replace(/^\.\//,"");if(ip.endsWith("/"))ip+="index.md"}}nn(ip,true);
+})();
+  </script>
+</body>
+</html>
